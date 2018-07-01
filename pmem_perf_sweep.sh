@@ -257,7 +257,7 @@ function get_optimal_cores(){
     MAX_CORES=0
     MAX_BW=0
     END_CORE=0
-    while [[ "$END_CORE" -le "$END_P" ]]; do
+    while [[ "$END_CORE" -le "$((CORES_PER_SOCKET - 1))" ]]; do
       echo "${FIRST_P}-$((FIRST_P + END_CORE))  ${TOK[0]} seq ${TOK[2]} ${TOK[3]}  ${TOK[4]}" > $INPUT_FILE
       if [ ${TOK[0]} == "R" ]; then SFENCE=""; else SFENCE="-Q"; fi
       if [ ${TOK[1]} == "rand" ]; then RAND="-l256"; else RAND=""; fi
@@ -370,13 +370,15 @@ function fix_ranges(){
   RANGE_WR_RND_CPUS="$FIRST_P-$END_WR_RND_CPUS"
   RANGE_MX_SEQ_CPUS="$FIRST_P-$END_MX_SEQ_CPUS"
   RANGE_MX_RND_CPUS="$FIRST_P-$END_MX_RND_CPUS"
-  
-  END_RD_SEQ_CPUS="$(($END_RD_SEQ_CPUS - ($CPUS * ${socket})))"
-  END_RD_RND_CPUS="$(($END_RD_RND_CPUS - ($CPUS * ${socket})))"
-  END_WR_SEQ_CPUS="$(($END_WR_SEQ_CPUS - ($CPUS * ${socket})))"
-  END_WR_RND_CPUS="$(($END_WR_RND_CPUS - ($CPUS * ${socket})))"
-  END_MX_SEQ_CPUS="$(($END_MX_SEQ_CPUS - ($CPUS * ${socket})))"
-  END_MX_RND_CPUS="$(($END_MX_RND_CPUS - ($CPUS * ${socket})))"
+
+  END_RD_SEQ_CPUS="$(($END_RD_SEQ_CPUS - ($CPUS * ${socket}) + 1))"
+  END_RD_RND_CPUS="$(($END_RD_RND_CPUS - ($CPUS * ${socket}) + 1))"
+  END_WR_SEQ_CPUS="$(($END_WR_SEQ_CPUS - ($CPUS * ${socket}) + 1))"
+  END_WR_RND_CPUS="$(($END_WR_RND_CPUS - ($CPUS * ${socket}) + 1))"
+  END_MX_SEQ_CPUS="$(($END_MX_SEQ_CPUS - ($CPUS * ${socket}) + 1))"
+  END_MX_RND_CPUS="$(($END_MX_RND_CPUS - ($CPUS * ${socket}) + 1))"
+
+
 }
 
 #################################################################################################
@@ -397,17 +399,17 @@ function idle_latency() {
 function bandwidth() {
   #if socket = 0 then X = 0, if socket = 1 then X = CPUs
   echo ""
-  echo "PMEM bandwidth: using $(($END_RD_SEQ_CPUS + 1)) for sequential read, $(($END_RD_RND_CPUS + 1)) for random read,"
-  echo "                       $(($END_WR_SEQ_CPUS + 1)) for sequential write, $(($END_WR_RND_CPUS + 1)) for random write,"
-  echo "                       $(($END_MX_SEQ_CPUS + 1)) for sequential mixed, $(($END_MX_RND_CPUS + 1)) for random mixed."
+  echo "PMEM bandwidth: using $END_RD_SEQ_CPUS for sequential read, $END_RD_RND_CPUS for random read,"
+  echo "                       $END_WR_SEQ_CPUS for sequential write, $END_WR_RND_CPUS for random write,"
+  echo "                       $END_MX_SEQ_CPUS for sequential mixed, $END_MX_RND_CPUS for random mixed."
   BW_ARRAY=(
   #  CPUs            Traffic type   seq or rand  buffer size   pmem or dram   pmem path     output filename
-    "$RANGE_RD_SEQ_CPUS R              seq          $BUF_SZ       pmem           $PMEM_PATH    bw_seq_READ_$(($END_RD_SEQ_CPUS + 1)).txt"
-    "$RANGE_RD_RND_CPUS R              rand         $BUF_SZ       pmem           $PMEM_PATH    bw_rnd_READ_$(($END_RD_RND_CPUS + 1)).txt"
-    "$RANGE_WR_SEQ_CPUS W6             seq          $BUF_SZ       pmem           $PMEM_PATH    bw_seq_WRNT_$(($END_WR_SEQ_CPUS + 1)).txt"
-    "$RANGE_WR_RND_CPUS W6             rand         $BUF_SZ       pmem           $PMEM_PATH    bw_rnd_WRNT_$(($END_WR_RND_CPUS + 1)).txt"
-    "$RANGE_MX_SEQ_CPUS W7             seq          $BUF_SZ       pmem           $PMEM_PATH    bw_seq_21NT_$(($END_MX_SEQ_CPUS + 1)).txt"
-    "$RANGE_MX_RND_CPUS W7             rand         $BUF_SZ       pmem           $PMEM_PATH    bw_rnd_21NT_$(($END_MX_RND_CPUS + 1)).txt"
+    "$RANGE_RD_SEQ_CPUS R              seq          $BUF_SZ       pmem           $PMEM_PATH    bw_seq_READ_${END_RD_SEQ_CPUS}.txt"
+    "$RANGE_RD_RND_CPUS R              rand         $BUF_SZ       pmem           $PMEM_PATH    bw_rnd_READ_${END_RD_RND_CPUS}.txt"
+    "$RANGE_WR_SEQ_CPUS W6             seq          $BUF_SZ       pmem           $PMEM_PATH    bw_seq_WRNT_${END_WR_SEQ_CPUS}.txt"
+    "$RANGE_WR_RND_CPUS W6             rand         $BUF_SZ       pmem           $PMEM_PATH    bw_rnd_WRNT_${END_WR_RND_CPUS}.txt"
+    "$RANGE_MX_SEQ_CPUS W7             seq          $BUF_SZ       pmem           $PMEM_PATH    bw_seq_21NT_${END_MX_SEQ_CPUS}.txt"
+    "$RANGE_MX_RND_CPUS W7             rand         $BUF_SZ       pmem           $PMEM_PATH    bw_rnd_21NT_${END_MX_RND_CPUS}.txt"
   )
   for LN in "${BW_ARRAY[@]}"; do
     TOK=( $LN )
@@ -430,27 +432,27 @@ function bandwidth() {
 }
 
 function loaded_latency() {
-  FIRST_CORE=$(echo $RANGE_RD_SEQ_CPUS | cut -d- -f1)
-  FIRST_CORE=$(($FIRST_CORE + 1))
+  LAT_CORE=$(echo $RANGE_RD_SEQ_CPUS | cut -d- -f1)
+  FIRST_CORE=$(($LAT_CORE + 1))
   LAST_CORE=$(echo $RANGE_RD_SEQ_CPUS | cut -d- -f2)
-  if [[ $(( $LAST_CORE + 1 )) -lt $CPUS ]]; then LAST_CORE=$(($LAST_CORE + 1)); fi
+  if [[ $(( $LAST_CORE + 1 )) -lt $END_P ]]; then LAST_CORE=$(($LAST_CORE + 1)); fi
   RANGE_RD_SEQ_CPUS="${FIRST_CORE}-${LAST_CORE}"
   echo ""
-  echo "0  R seq  $BUF_SZ pmem $PMEM_PATH" >  $PMEM_PERTHREAD
+  echo "$LAT_CORE  R seq  $BUF_SZ pmem $PMEM_PATH" >  $PMEM_PERTHREAD
   echo "$RANGE_RD_SEQ_CPUS R seq  $BUF_SZ pmem $PMEM_PATH" >> $PMEM_PERTHREAD
-  echo $(( $END_RD_SEQ_CPUS + 1 )) core PMEM sequential read loaded latency sweep:
+  echo ${END_RD_SEQ_CPUS} core PMEM sequential read loaded latency sweep:
   echo " Delay nS         MBPS"
   $MLC --loaded_latency -g$DELAYS_FILE -o$PMEM_PERTHREAD -t$SAMPLE_TIME -Z > $OUTPUT_PATH/out_llat_seq_READ_$RD_SEQ_CPUS.txt
   cat $OUTPUT_PATH/out_llat_seq_READ_$RD_SEQ_CPUS.txt | sed -n -e '/==========================/,$p' | tail -n+2
 
-  FIRST_CORE=$(echo $RANGE_RD_RND_CPUS | cut -d- -f1)
-  FIRST_CORE=$(($FIRST_CORE + 1))
+  LAT_CORE=$(echo $RANGE_RD_RND_CPUS | cut -d- -f1)
+  FIRST_CORE=$(($LAT_CORE + 1))
   LAST_CORE=$(echo $RANGE_RD_RND_CPUS | cut -d- -f2)
-  if [[ $(( $LAST_CORE + 1 )) -lt $CPUS ]]; then LAST_CORE=$(($LAST_CORE + 1)); fi
+  if [[ $(( $LAST_CORE + 1 )) -lt $END_P ]]; then LAST_CORE=$(($LAST_CORE + 1)); fi
   RANGE_RD_RND_CPUS="${FIRST_CORE}-${LAST_CORE}"
-  echo "0  R seq $BUF_SZ pmem $PMEM_PATH" >  $PMEM_PERTHREAD
+  echo "$LAT_CORE  R seq $BUF_SZ pmem $PMEM_PATH" >  $PMEM_PERTHREAD
   echo "$RANGE_RD_RND_CPUS R rand $BUF_SZ pmem $PMEM_PATH" >> $PMEM_PERTHREAD
-  echo $(( $END_RD_RND_CPUS + 1 )) core PMEM random read loaded latency sweep:
+  echo ${END_RD_RND_CPUS} core PMEM random read loaded latency sweep:
   echo " Delay nS         MBPS"
   $MLC --loaded_latency -g$DELAYS_FILE -o$PMEM_PERTHREAD -t$SAMPLE_TIME -l256 -Z > $OUTPUT_PATH/out_llat_rnd_READ_$RD_RND_CPUS.txt
   cat $OUTPUT_PATH/out_llat_rnd_READ_$RD_RND_CPUS.txt | sed -n -e '/==========================/,$p' | tail -n+2
