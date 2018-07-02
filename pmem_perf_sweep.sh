@@ -246,12 +246,17 @@ function get_optimal_cores(){
   #  Traffic type   seq or rand  buffer size   pmem or dram     pmem path
     "R              seq          $BUF_SZ       pmem           $PMEM_PATH           END_RD_SEQ_CPUS"
     "R              rand         $BUF_SZ       pmem           $PMEM_PATH           END_RD_RND_CPUS"
-    "W6             seq          $BUF_SZ       pmem           $PMEM_PATH           END_WR_SEQ_CPUS"
-    "W6             rand         $BUF_SZ       pmem           $PMEM_PATH           END_WR_RND_CPUS"
-    "W7             seq          $BUF_SZ       pmem           $PMEM_PATH           END_MX_SEQ_CPUS"
-    "W7             rand         $BUF_SZ       pmem           $PMEM_PATH           END_MX_RND_CPUS"
+    "W6             seq          $BUF_SZ       pmem           $PMEM_PATH           END_NTW_SEQ_CPUS"
+    "W6             rand         $BUF_SZ       pmem           $PMEM_PATH           END_NTW_RND_CPUS"
+    "W7             seq          $BUF_SZ       pmem           $PMEM_PATH           END_21NTW_SEQ_CPUS"
+    "W7             rand         $BUF_SZ       pmem           $PMEM_PATH           END_21NTW_RND_CPUS"
+    "W2             seq          $BUF_SZ       pmem           $PMEM_PATH           END_21RFO_SEQ_CPUS"
+    "W2             rand         $BUF_SZ       pmem           $PMEM_PATH           END_21RFO_RND_CPUS"
+    "W5             seq          $BUF_SZ       pmem           $PMEM_PATH           END_11RFO_SEQ_CPUS"
+    "W5             rand         $BUF_SZ       pmem           $PMEM_PATH           END_11RFO_RND_CPUS"
    )
 
+  #Run 5 sec sweeps for all traffics-all cores to get optimum core count
   for LN in "${CORESWEEP_ARRAY[@]}"; do
     TOK=( $LN )
     MAX_CORES=0
@@ -259,16 +264,19 @@ function get_optimal_cores(){
     END_CORE=0
     while [[ "$END_CORE" -le "$((CORES_PER_SOCKET - 1))" ]]; do
       echo "${FIRST_P}-$((FIRST_P + END_CORE))  ${TOK[0]} seq ${TOK[2]} ${TOK[3]}  ${TOK[4]}" > $INPUT_FILE
-      if [ ${TOK[0]} == "R" ]; then SFENCE=""; else SFENCE="-Q"; fi
+      if [ ${TOK[0]} == "W6" ] || [ ${TOK[0]} == "W7" ] ; then SFENCE="-Q"; else SFENCE=""; fi
+      if [ ${TOK[0]} == "W2" ] || [ ${TOK[0]} == "W5" ] ; then PFLUSH="-P"; else PFLUSH=""; fi
       if [ ${TOK[1]} == "rand" ]; then RAND="-l256"; else RAND=""; fi
-      $MLC --loaded_latency -d0 -o$INPUT_FILE -t$SWEEP_TIME -T -Z $RAND $SFENCE >> $OUTPUT_PATH/${SWEEP_LOG}_${TOK[0]}_${TOK[1]}.txt
+      $MLC --loaded_latency -d0 -o$INPUT_FILE -t$SWEEP_TIME -T -Z $RAND $SFENCE $PFLUSH >> $OUTPUT_PATH/${SWEEP_LOG}_${TOK[0]}_${TOK[1]}.txt
       BW=$(tail -n 4 $OUTPUT_PATH/${SWEEP_LOG}_${TOK[0]}_${TOK[1]}.txt | grep '0\.00' | awk '{print $3}')
+   #Evaluate to get the max bw and corresponding core cout
       if (( $(echo "$BW > $MAX_BW" | bc -l)  )); then
         MAX_BW=$BW
         MAX_CORES=$(( END_CORE ))
       fi
       END_CORE=$(( END_CORE + 1 ))
     done
+   #Save optimal core count to respective variable
     eval "${TOK[5]}=$(( MAX_CORES + 1 ))" 
     sleep 1
   done
@@ -348,35 +356,61 @@ function fix_ranges(){
   if (($END_RD_RND_CPUS > $END_P));then
     END_RD_RND_CPUS=$END_P
   fi
-  END_WR_SEQ_CPUS=$((($END_WR_SEQ_CPUS + $FIRST_P) - 1))
-  if (($END_WR_SEQ_CPUS > $END_P));then
-    END_WR_SEQ_CPUS=$END_P
+  END_NTW_SEQ_CPUS=$((($END_NTW_SEQ_CPUS + $FIRST_P) - 1))
+  if (($END_NTW_SEQ_CPUS > $END_P));then
+    END_NTW_SEQ_CPUS=$END_P
   fi
-  END_WR_RND_CPUS=$((($END_WR_RND_CPUS + $FIRST_P) - 1))
-  if (($END_WR_RND_CPUS > $END_P));then
-    END_WR_RND_CPUS=$END_P
+  END_NTW_RND_CPUS=$((($END_NTW_RND_CPUS + $FIRST_P) - 1))
+  if (($END_NTW_RND_CPUS > $END_P));then
+    END_NTW_RND_CPUS=$END_P
   fi
-  END_MX_SEQ_CPUS=$((($END_MX_SEQ_CPUS + $FIRST_P) - 1))
-  if (($END_MX_SEQ_CPUS > $END_P));then
-    END_MX_SEQ_CPUS=$END_P
+  END_21NTW_SEQ_CPUS=$((($END_21NTW_SEQ_CPUS + $FIRST_P) - 1))
+  if (($END_21NTW_SEQ_CPUS > $END_P));then
+    END_21NTW_SEQ_CPUS=$END_P
   fi
-  END_MX_RND_CPUS=$((($END_MX_RND_CPUS + $FIRST_P) - 1))
-  if (($END_MX_RND_CPUS > $END_P));then
-    END_MX_RND_CPUS=$END_P
+  END_21NTW_RND_CPUS=$((($END_21NTW_RND_CPUS + $FIRST_P) - 1))
+  if (($END_21NTW_RND_CPUS > $END_P));then
+    END_21NTW_RND_CPUS=$END_P
   fi
+  END_21RFO_SEQ_CPUS=$((($END_21RFO_SEQ_CPUS + $FIRST_P) - 1))
+  if (($END_21RFO_SEQ_CPUS > $END_P));then
+    END_21RFO_SEQ_CPUS=$END_P
+  fi
+  END_21RFO_RND_CPUS=$((($END_21RFO_RND_CPUS + $FIRST_P) - 1))
+  if (($END_21RFO_RND_CPUS > $END_P));then
+    END_21RFO_RND_CPUS=$END_P
+  fi
+  END_11RFO_SEQ_CPUS=$((($END_11RFO_SEQ_CPUS + $FIRST_P) - 1))
+  if (($END_11RFO_SEQ_CPUS > $END_P));then
+    END_11RFO_SEQ_CPUS=$END_P
+  fi
+  END_11RFO_RND_CPUS=$((($END_11RFO_RND_CPUS + $FIRST_P) - 1))
+  if (($END_11RFO_RND_CPUS > $END_P));then
+    END_11RFO_RND_CPUS=$END_P
+  fi
+
+
   RANGE_RD_SEQ_CPUS="$FIRST_P-$END_RD_SEQ_CPUS"
   RANGE_RD_RND_CPUS="$FIRST_P-$END_RD_RND_CPUS"
-  RANGE_WR_SEQ_CPUS="$FIRST_P-$END_WR_SEQ_CPUS"
-  RANGE_WR_RND_CPUS="$FIRST_P-$END_WR_RND_CPUS"
-  RANGE_MX_SEQ_CPUS="$FIRST_P-$END_MX_SEQ_CPUS"
-  RANGE_MX_RND_CPUS="$FIRST_P-$END_MX_RND_CPUS"
+  RANGE_NTW_SEQ_CPUS="$FIRST_P-$END_NTW_SEQ_CPUS"
+  RANGE_NTW_RND_CPUS="$FIRST_P-$END_NTW_RND_CPUS"
+  RANGE_21NTW_SEQ_CPUS="$FIRST_P-$END_21NTW_SEQ_CPUS"
+  RANGE_21NTW_RND_CPUS="$FIRST_P-$END_21NTW_RND_CPUS"
+  RANGE_21RFO_SEQ_CPUS="$FIRST_P-$END_21RFO_SEQ_CPUS"
+  RANGE_21RFO_RND_CPUS="$FIRST_P-$END_21RFO_RND_CPUS"
+  RANGE_11RFO_SEQ_CPUS="$FIRST_P-$END_11RFO_SEQ_CPUS"
+  RANGE_11RFO_RND_CPUS="$FIRST_P-$END_11RFO_RND_CPUS"
 
   END_RD_SEQ_CPUS="$(($END_RD_SEQ_CPUS - ($CPUS * ${socket}) + 1))"
   END_RD_RND_CPUS="$(($END_RD_RND_CPUS - ($CPUS * ${socket}) + 1))"
-  END_WR_SEQ_CPUS="$(($END_WR_SEQ_CPUS - ($CPUS * ${socket}) + 1))"
-  END_WR_RND_CPUS="$(($END_WR_RND_CPUS - ($CPUS * ${socket}) + 1))"
-  END_MX_SEQ_CPUS="$(($END_MX_SEQ_CPUS - ($CPUS * ${socket}) + 1))"
-  END_MX_RND_CPUS="$(($END_MX_RND_CPUS - ($CPUS * ${socket}) + 1))"
+  END_NTW_SEQ_CPUS="$(($END_NTW_SEQ_CPUS - ($CPUS * ${socket}) + 1))"
+  END_NTW_RND_CPUS="$(($END_NTW_RND_CPUS - ($CPUS * ${socket}) + 1))"
+  END_21NTW_SEQ_CPUS="$(($END_21NTW_SEQ_CPUS - ($CPUS * ${socket}) + 1))"
+  END_21NTW_RND_CPUS="$(($END_21NTW_RND_CPUS - ($CPUS * ${socket}) + 1))"
+  END_21RFO_SEQ_CPUS="$(($END_21RFO_SEQ_CPUS - ($CPUS * ${socket}) + 1))"
+  END_21RFO_RND_CPUS="$(($END_21RFO_RND_CPUS - ($CPUS * ${socket}) + 1))"
+  END_11RFO_SEQ_CPUS="$(($END_11RFO_SEQ_CPUS - ($CPUS * ${socket}) + 1))"
+  END_11RFO_RND_CPUS="$(($END_11RFO_RND_CPUS - ($CPUS * ${socket}) + 1))"
 
 
 }
@@ -399,33 +433,32 @@ function idle_latency() {
 function bandwidth() {
   #if socket = 0 then X = 0, if socket = 1 then X = CPUs
   echo ""
-  echo "PMEM bandwidth: using $END_RD_SEQ_CPUS for sequential read, $END_RD_RND_CPUS for random read,"
-  echo "                       $END_WR_SEQ_CPUS for sequential write, $END_WR_RND_CPUS for random write,"
-  echo "                       $END_MX_SEQ_CPUS for sequential mixed, $END_MX_RND_CPUS for random mixed."
+  echo "PMEM bandwidth: using ${END_RD_SEQ_CPUS} for sequential read, ${END_RD_RND_CPUS} for random read,"
+  echo "                       ${END_NTW_SEQ_CPUS} for sequential NTW, ${END_NTW_RND_CPUS} for random NTW,"
+  echo "                       ${END_21NTW_SEQ_CPUS} for sequential 2R:1NTWrite, ${END_21NTW_RND_CPU} for random 2R:1NTW,"
+  echo "                       ${END_21RFO_SEQ_CPUS} for sequential 2R:1RFO, ${END_21RFO_RND_CPUS} for random 2R:1RFO,"
+  echo "                       ${END_11RFO_SEQ_CPUS} for sequential 1R:1RFO, ${END_11RFO_RND_CPUS} for random 1R:1RFO."
   BW_ARRAY=(
-  #  CPUs            Traffic type   seq or rand  buffer size   pmem or dram   pmem path     output filename
+  #  CPUs            Traffic type   seq or rand  buffer size   pmem or dram      pmem path     output filename
     "$RANGE_RD_SEQ_CPUS R              seq          $BUF_SZ       pmem           $PMEM_PATH    bw_seq_READ_${END_RD_SEQ_CPUS}.txt"
     "$RANGE_RD_RND_CPUS R              rand         $BUF_SZ       pmem           $PMEM_PATH    bw_rnd_READ_${END_RD_RND_CPUS}.txt"
-    "$RANGE_WR_SEQ_CPUS W6             seq          $BUF_SZ       pmem           $PMEM_PATH    bw_seq_WRNT_${END_WR_SEQ_CPUS}.txt"
-    "$RANGE_WR_RND_CPUS W6             rand         $BUF_SZ       pmem           $PMEM_PATH    bw_rnd_WRNT_${END_WR_RND_CPUS}.txt"
-    "$RANGE_MX_SEQ_CPUS W7             seq          $BUF_SZ       pmem           $PMEM_PATH    bw_seq_21NT_${END_MX_SEQ_CPUS}.txt"
-    "$RANGE_MX_RND_CPUS W7             rand         $BUF_SZ       pmem           $PMEM_PATH    bw_rnd_21NT_${END_MX_RND_CPUS}.txt"
+    "$RANGE_NTW_SEQ_CPUS W6            seq          $BUF_SZ       pmem           $PMEM_PATH    bw_seq_NTW_${END_NTW_SEQ_CPUS}.txt"
+    "$RANGE_NTW_RND_CPUS W6            rand         $BUF_SZ       pmem           $PMEM_PATH    bw_rnd_NTW_${END_NTW_RND_CPUS}.txt"
+    "$RANGE_21NTW_SEQ_CPUS W7          seq          $BUF_SZ       pmem           $PMEM_PATH    bw_seq_21NT_${END_21NTW_SEQ_CPUS}.txt"
+    "$RANGE_21NTW_RND_CPUS W7          rand         $BUF_SZ       pmem           $PMEM_PATH    bw_rnd_21NT_${END_21NTW_RND_CPUS}.txt"
+    "$RANGE_21RFO_SEQ_CPUS W2          seq          $BUF_SZ       pmem           $PMEM_PATH    bw_seq_21RFO_${END_21RFO_SEQ_CPUS}.txt"
+    "$RANGE_21RFO_RND_CPUS W2          rand         $BUF_SZ       pmem           $PMEM_PATH    bw_rnd_21RFO_${END_21RFO_RND_CPUS}.txt"
+    "$RANGE_11RFO_SEQ_CPUS W5          seq          $BUF_SZ       pmem           $PMEM_PATH    bw_seq_11RFO_${END_11RFO_SEQ_CPUS}.txt"
+    "$RANGE_11RFO_RND_CPUS W5          rand         $BUF_SZ       pmem           $PMEM_PATH    bw_rnd_11RFO_${END_11RFO_RND_CPUS}.txt"
   )
   for LN in "${BW_ARRAY[@]}"; do
     TOK=( $LN )
     echo ${TOK[0]} ${TOK[1]} seq ${TOK[3]} ${TOK[4]} ${TOK[5]} > $PMEM_PERTHREAD
     echo -n "max PMEM bandwidth for ${TOK[6]} - Delay, nS, MBPS: "
-    if [ ${TOK[0]} == "R" ]; then
-      SFENCE=""
-    else
-      SFENCE="-Q"
-    fi
-    if [ ${TOK[2]} == "rand" ]; then
-      RAND="-l256"
-    else
-	    RAND=""
-	  fi
-    $MLC --loaded_latency -d0 -o$PMEM_PERTHREAD -t$SAMPLE_TIME -T -Z $RAND $SFENCE > $OUTPUT_PATH/${TOK[6]}
+    if [ ${TOK[1]} == "W6" ] || [ ${TOK[1]} == "W7" ] ; then SFENCE="-Q"; else SFENCE=""; fi
+    if [ ${TOK[1]} == "W2" ] || [ ${TOK[1]} == "W5" ] ; then PFLUSH="-P"; else PFLUSH=""; fi
+    if [ ${TOK[2]} == "rand" ]; then RAND="-l256"; else RAND=""; fi
+    $MLC --loaded_latency -d0 -o$PMEM_PERTHREAD -t$SAMPLE_TIME -T -Z $RAND $SFENCE $PFLUSH > $OUTPUT_PATH/${TOK[6]}
     cat $OUTPUT_PATH/${TOK[6]} | sed -n -e '/==========================/,$p' | tail -n+2
     sleep 3
   done
@@ -456,6 +489,7 @@ function loaded_latency() {
   echo " Delay nS         MBPS"
   $MLC --loaded_latency -g$DELAYS_FILE -o$PMEM_PERTHREAD -t$SAMPLE_TIME -l256 -Z > $OUTPUT_PATH/out_llat_rnd_READ_$RD_RND_CPUS.txt
   cat $OUTPUT_PATH/out_llat_rnd_READ_$RD_RND_CPUS.txt | sed -n -e '/==========================/,$p' | tail -n+2
+
 }
 
 function start_measurements(){
