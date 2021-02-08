@@ -499,14 +499,7 @@ check_rage_per_socket
 handle_config
 check_dimms
 init_outputs
-get_optimal_cores &
-PID=$!
-while [ "$(ps a | awk '{print $1}' | grep $PID)" ] ; do
-  for X in '-' '/' '|' '\'; do
-    echo -en "\b$X"
-    sleep 0.5
-  done
-done
+get_optimal_cores
 echo ""
 echo "Optimal thread count found. Starting PMEM measurements."
 fix_ranges
