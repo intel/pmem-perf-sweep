@@ -415,7 +415,7 @@ function bandwidth() {
     TOK=( $LN )
     echo ${TOK[0]} ${TOK[1]} seq ${TOK[3]} ${TOK[4]} ${TOK[5]} > $PMEM_PERTHREAD
     echo -n "max PMEM bandwidth for ${TOK[6]} - Delay, nS, MBPS: "
-    if [ ${TOK[0]} == "R" ]; then
+    if [ ${TOK[1]} == "R" ]; then
       SFENCE=""
     else
       SFENCE="-Q"
