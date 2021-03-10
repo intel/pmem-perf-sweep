@@ -442,7 +442,7 @@ function loaded_latency() {
   echo "$RANGE_RD_SEQ_CPUS R seq  $BUF_SZ pmem $PMEM_PATH" >> $PMEM_PERTHREAD
   echo ${END_RD_SEQ_CPUS} core PMEM sequential read loaded latency sweep:
   echo " Delay nS         MBPS"
-  $MLC --loaded_latency -g$DELAYS_FILE -o$PMEM_PERTHREAD -t$SAMPLE_TIME -Z > $OUTPUT_PATH/out_llat_seq_READ_$RD_SEQ_CPUS.txt
+  $MLC --loaded_latency -g$DELAYS_FILE -o$PMEM_PERTHREAD -t$SAMPLE_TIME -Z -c$LAT_CORE > $OUTPUT_PATH/out_llat_seq_READ_$RD_SEQ_CPUS.txt
   cat $OUTPUT_PATH/out_llat_seq_READ_$RD_SEQ_CPUS.txt | sed -n -e '/==========================/,$p' | tail -n+2
 
   LAT_CORE=$(echo $RANGE_RD_RND_CPUS | cut -d- -f1)
@@ -454,7 +454,7 @@ function loaded_latency() {
   echo "$RANGE_RD_RND_CPUS R rand $BUF_SZ pmem $PMEM_PATH" >> $PMEM_PERTHREAD
   echo ${END_RD_RND_CPUS} core PMEM random read loaded latency sweep:
   echo " Delay nS         MBPS"
-  $MLC --loaded_latency -g$DELAYS_FILE -o$PMEM_PERTHREAD -t$SAMPLE_TIME -l256 -Z > $OUTPUT_PATH/out_llat_rnd_READ_$RD_RND_CPUS.txt
+  $MLC --loaded_latency -g$DELAYS_FILE -o$PMEM_PERTHREAD -t$SAMPLE_TIME -l256 -Z -c$LAT_CORE > $OUTPUT_PATH/out_llat_rnd_READ_$RD_RND_CPUS.txt
   cat $OUTPUT_PATH/out_llat_rnd_READ_$RD_RND_CPUS.txt | sed -n -e '/==========================/,$p' | tail -n+2
 }
 
