@@ -165,7 +165,7 @@ function handle_config() {
       exit 0;
     fi
   done
-  DIMM_SIZE=${DIMMS_SIZE[MEMORY_CHANNELS_PER_SOCKET*socket]}
+  DIMM_SIZE=${DIMMS_SIZE[NUM_DIMMS*socket]}
   if (( $(bc <<< "${DIMM_SIZE} > 116") )) && (( $(bc <<< "${DIMM_SIZE} < 128") )); then
     DIMM_TYPE="SDP"
     DIMM_SIZE_GB="128GB"
