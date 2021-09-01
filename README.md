@@ -58,7 +58,3 @@ Use a terminal from which the stdout may be captured. The pmem_perf_sweep.sh (ml
   The below example also includes syntax to collect stdout to a logfile. 
   Note: The script default path is: MLC=./mlc_avx512
     * ./pmem_perf_sweep.sh -m /root/mlc/Linux/mlc_avx512 -p /mnt/pmem -s 0 | tee -a PMem_PnP_result.log
-
-* Cut and paste the stdout or captured result .log contents into the analysis spreadsheet, Intel_Optane_PMem_QS_Sample_PNP_Eval_Tool_<version>.xlsx, into the data worksheet in cell A1 (i.e. ='data'!A1). Ensure all the data is in column A, it may be necessary to disable the Excel Text to Columns delimiter for tabs when using an editor to view the .log contents. 
-
-* In the .xlxs summary worksheet; ensure to appropriately update the highlighted yellow cells for the DIMM Capacity (B2) and DIMM_Power (D2) for valid analysis comparison.
